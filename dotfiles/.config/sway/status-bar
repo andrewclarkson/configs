@@ -1,0 +1,57 @@
+#!/usr/bin/env fish
+
+set red "#FF0000"
+set yellow "#FFFF00"
+set green "#00FF00"
+set sys_path "/sys/class/power_supply"
+set device_name "BAT0"
+set battery_path "$sys_path/$device_name"
+set poll_seconds 5
+
+function battery_block
+  set battery_status (cat $battery_path/status)
+  set battery_capacity (cat $battery_path/capacity)
+
+  if test "$battery_status" = "Discharging"
+    if test "$battery_capacity" -gt 70
+      set battery_color $green
+    else if test "$battery_capacity" -gt 40
+      set battery_color $yellow
+    else
+      set battery_color $red
+    end
+    set battery_icon " "
+  else
+    set battery_color $green
+    set battery_icon "+"
+  end
+  echo "{
+    \"name\": \"battery\",
+    \"full_text\": \"$battery_icon $battery_capacity%\",
+    \"short_text\": \"$battery_capacity%\",
+    \"min_width\": \"$battery_icon 100%\",
+    \"color\": \"$battery_color\"
+  }"
+end
+
+
+function time_block
+  set time (date +"%H:%M:%S %Z")
+  echo "{
+    \"name\": \"time\",
+    \"full_text\":\"$time\"
+  }"
+end
+
+echo '{"version": 1}'
+echo '['
+
+while true
+  echo "["
+  battery_block
+  echo ","
+  time_block
+  echo "],"
+  sleep $poll_seconds
+end
+
