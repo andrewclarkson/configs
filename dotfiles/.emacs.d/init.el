@@ -22,7 +22,22 @@
 (setq backup-directory-alist `((".*" . ,temporary-file-directory))
       auto-save-file-name-transforms `((".*" ,temporary-file-directory t)))
 
-;;; System Packages
+(use-package spacemacs-theme
+  :init (load-theme 'spacemacs-dark t))
+
+(use-package fira-code-mode
+  :config (global-fira-code-mode))
+
+(menu-bar-mode -1)
+(toggle-scroll-bar -1)
+(tool-bar-mode -1)
+
+(add-to-list 'exec-path "/usr/local/bin/")
+(add-to-list 'exec-path "/Users/aclarkson/.pyenv/shims/")
+(add-to-list 'exec-path "/Users/aclarkson/.cargo/bin")
+
+;;; System Package
+
 (use-package magit
   :config (with-editor-emacsclient-executable "emacsclient")
   :bind (("C-x g" . magit-status)))
@@ -32,12 +47,17 @@
   :bind (("M-x" . helm-M-x)
 	 ("C-x C-f" . helm-find-files)))
 
-(use-package helm-ag
-  :bind (("C-u" . helm-ag)))
+(use-package helm-projectile)
 
-(use-package projectile)
+(use-package projectile
+  :config
+  (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
+  (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
+  (projectile-mode 1))
 
 ;;; Language Modes
+(use-package python-mode)
+
 (use-package idris-mode
   :mode "\\.idr\\'")
 
@@ -67,6 +87,12 @@
 (use-package yaml-mode
   :mode "\\.y\\(ml\\|aml\\)$")
 
+(use-package geiser)
+
+(use-package lsp-java)
+
+(use-package editorconfig
+  :config (editorconfig-mode 1))
 
 (use-package flycheck
   :init (global-flycheck-mode))
@@ -75,9 +101,10 @@
   :commands lsp
   :hook ((rust-mode . lsp)
 	 (scala-mode . lsp)
-	 (lsp-mode . lsp-lens-mode))
-  :config (setq lsp-prefer-flymake nil))
-
+	 (java-mode . lsp)
+	 (python-mode . lsp)
+	 (c++-mode . lsp)
+	 (lsp-mode . lsp-lens-mode)))
 
 ;; Enable nice rendering of documentation on hover
 (use-package lsp-ui)
@@ -93,24 +120,28 @@
 ;; Use the Tree View Protocol for viewing the project structure and triggering compilation
 (use-package lsp-treemacs
   :config
-  (lsp-metals-treeview-enable t)
-  (setq lsp-metals-treeview-show-when-views-received t)
-  )
+  (lsp-metals-treeview-enable t))
 
+
+(use-package dap-mode)
 
 ;; TRAMP configuration for remote file editing
 (setq tramp-default-method "ssh")
+
+
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(editorconfig-mode t)
+ '(helm-completion-style (quote emacs))
  '(package-selected-packages
    (quote
-    (sbt-mode lsp-treemacs company-lsp yasnippet lsp-ui yaml-mode helm-ag nix-mode rust-mode scala-mode idris-mode projectile lsp-mode flycheck helm magit use-package))))
+    (helm-projectile editorconfig ag spacemacs-theme solarized-theme rls python-mode geiser which-key evil lsp-java dap-python dap-rust dap-java dap-mode sbt-mode lsp-treemacs company-lsp yasnippet lsp-ui yaml-mode helm-ag nix-mode rust-mode scala-mode idris-mode projectile lsp-mode flycheck helm magit use-package))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- )
+ '(default ((t (:inherit nil :stipple nil :background "#292b2e" :foreground "#b2b2b2" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 160 :width normal :foundry "nil" :family "Menlo")))))
