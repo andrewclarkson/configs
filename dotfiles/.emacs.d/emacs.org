@@ -1,0 +1,176 @@
+#+TITLE: Emacs Literate Configuration
+#+PROPERTY: header-args :tangle yes
+
+** About
+
+This is my Emacs config. I organize it as an ~org~ file to help others (and myself) understand what's going on here.
+
+I break it down into sections.  
+
+ 
+** Package Management
+
+*** package.el
+
+Most newer versions of Emacs come with package.el installed, all we have to do
+is configure some archives and initialize it.
+
+#+BEGIN_SRC emacs-lisp
+(require 'package)
+(setq package-enable-at-startup nil)
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
+(package-initialize)
+#+END_SRC
+
+*** use-package
+
+I use [[https://github.com/jwiegley/use-package][use-package]] to manage packages. It's just a macro around ~package.el~, but it helps keep this config a little cleaner. 
+
+This installs use-package using package.el only if it isn't already installed.
+
+#+BEGIN_SRC emacs-lisp
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
+(require 'use-package)
+#+END_SRC
+
+Always ensure installs packages if they aren't already
+
+#+BEGIN_SRC emacs-lisp
+(setq use-package-always-ensure t)
+#+END_SRC
+
+
+** Usability 
+
+*** Tabs vs. Spaces
+
+Spaces > tabs. However, by default we'll keep the 8 spaces per tab standard.
+This is ugly, but it _should_ get overridden by different modes and project
+configurations.
+
+#+BEGIN_SRC emacs-lisp
+(setq-default indent-tabs-mode nil)
+(setq-default tab-width 8)
+#+END_SRC
+
+
+*** Newline at the end of the file
+
+There's an [[https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_206][old POSIX rule]] that all non-empty files should end with a newline
+character.
+
+#+BEGIN_SRC emacs-lisp
+
+#+END_SRC
+
+*** Ignore the bell
+
+I screw up commands _a lot_ and the "bell" or "beep" on some erroneous action get's really annoying. This just silences it.
+
+#+BEGIN_SRC emacs-lisp
+(setq ring-bell-function 'ignore)
+#+END_SRC
+
+*** Scrolling
+
+**** TODO Add scrolling preferences
+
+*** Toolbars and Menus
+
+I never use the toolbars and menu at the top of the Emacs window. This disables them.
+
+#+BEGIN_SRC emacs-lisp
+(tool-bar-mode -1)
+(menu-bar-mode -1)
+#+END_SRC
+
+*** Garbage Collection
+
+
+** evil
+
+I use [[https://github.com/emacs-evil/evil][evil]] to create Vim-like layer over Emacs. I was starting to develop RMS
+("emacs pinky") and switching to evil, in addition to a host of other
+ergonomics, seems to work for me. In combination with the Dvorak keyboard
+layout, evil helps me stay on "home row".
+
+I use the motion keys h, t, n, s for left, down, up, and left. These are where the QWERTY Vim motion keys would normally be. 
+
+#+BEGIN_SRC emacs-lisp
+(defun evil-dvorak-keybindings ()  
+  (evil-define-key 'motion 'global
+    "t" 'evil-next-visual-line
+    "n" 'evil-previous-visual-line
+    "h" 'evil-backward-char
+    "s" 'evil-forward-char)
+  (evil-define-key 'insert 'global
+    (kbd "C-h") 'evil-backward-char
+    (kbd "C-s") 'evil-forward-char
+    (kbd "C-n") 'evil-previous-visual-line
+    (kbd "C-t") 'evil-next-visual-line
+    (kbd "C-d") 'delete-char))
+#+END_SRC
+
+I use the Space key as a leader for most commands. This needs to
+happen before evil-mode or else existing buffers won't use the
+leader. This is especially annoying when you're frequently reloading
+this configuration.
+
+#+BEGIN_SRC emacs-lisp
+(use-package evil-leader
+  :config 
+    (setq evil-leader/in-all-states t)
+    (global-evil-leader-mode)
+    (evil-leader/set-leader "<SPC>")
+    (evil-leader/set-key
+    "ff" 'find-file
+    "bb" 'switch-to-buffer
+    "SPC" 'execute-extended-command)) 
+#+END_SRC
+
+Finally we actually install and configure evil.
+
+#+BEGIN_SRC emacs-lisp
+(use-package evil
+  :config 
+  (evil-mode +1)
+  (evil-dvorak-keybindings))
+#+END_SRC
+
+** which-key
+
+[[][which-key]] helps me find keys for commands.
+
+#+BEGIN_SRC emacs-lisp
+(use-package which-key
+  :config (which-key-mode +1))
+#+END_SRC
+
+** Ivy
+
+I use Ivy as a completion framework.
+
+#+BEGIN_SRC emacs-lisp
+(use-package ivy
+  :config (ivy-mode +1)
+  (setq ivy-use-virtual-buffers t)
+  :bind (:map ivy-minibuffer-map)
+        ("C-t" . ivy-next-line)
+        ("C-n" . ivy-previous-line))
+#+END_SRC
+
+#+BEGIN_SRC emacs-lisp
+(use-package counsel) 
+#+END_SRC
+
+** org-mode
+
+I use org-mode pretty extensively.
+
+** Magit
+
+#+BEGIN_SRC emacs-lisp
+(use-package magit) 
+#+END_SRC
