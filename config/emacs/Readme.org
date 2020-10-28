@@ -1,0 +1,637 @@
+#+TITLE: Emacs configuration
+#+PROPERTY: header-args:emacs-lisp :tangle ./default.el
+
+* Overview
+
+I've opted for a literate programming style for my Emacs configuration. It helps me remember why certain things exist and where I got them from. This is all powered by org-babel which allows me to "tangle" the following code blocks together in order.
+
+Based on the property above all emacs lisp code blocks get written to ~default.el~. 
+
+* Generation
+
+To generate the ~default.el~ file, you'll need to "tangle" the various chunks of code into files.
+
+To do this from the command line, you'll need to run something like
+
+#+begin_src sh
+emacs -l ob-tangle --batch --eval '(org-babel-tangle-file "Readme.org")'
+#+end_src
+
+From there you can build an install it using nix. More information can be found in [[file:../../modules/emacs/Readme.org][Readme.org]] at the root of this repo.
+
+* Package Management
+
+This is a little prelude to bring in use-package in a relatively performant way.
+
+#+begin_src emacs-lisp
+(require 'package)
+(package-initialize 'noactivate)
+(eval-when-compile (require 'use-package))
+#+end_src
+
+These settings disable the installation functionality, because we don't actually want use-package to install packages. We're relying on nix to do that part.
+If you wanted to use this configuration outside of nix you'd to remove the ensure disabling.
+
+#+begin_src emacs-lisp
+(setq use-package-always-ensure nil
+      use-package-ensure-function 'ignore
+      package-enable-at-startup nil
+      package--init-file-ensured t)
+#+end_src
+
+* Nix Environment
+
+Packages in nix aren't on the path. We want to keep the packages emacs uses separate from the ones a user may install. Because of this we need to template them out in ~../../modules/emacs/nix-env.el.in~ and then load up the paths here.
+
+This approach is stolen from [[https://git.sr.ht/~jack/nix-overlay/tree/master/jack-emacs/nix-environment.el.in][jack-emacs]].
+
+#+begin_src emacs-lisp
+(load "nix-env")
+#+end_src
+
+* Performance
+   
+These are some performance tweaks to make startup faster.
+
+** Garbage Collection
+
+This increases the GC threshold to 10MB during startup and then restores it after init.
+
+#+begin_src emacs-lisp
+(setq gc-cons-threshold 10000000)
+
+(add-hook 'after-init-hook
+            (lambda ()
+              (setq gc-cons-threshold 1000000)
+              (message "gc-cons-threshold restored to %S"
+                       gc-cons-threshold)))
+#+end_src
+
+* Appearance
+   
+The default appearance of Emacs ain't cute. Let's customize a bit.
+
+** GUI Chrome
+
+GUI Emacs starts with a toolbar and menu on top of the window as well as a scroll bar on the side.
+
+#+begin_src emacs-lisp
+(tool-bar-mode -1)
+(menu-bar-mode -1)
+(scroll-bar-mode -1)
+(tooltip-mode -1)
+#+end_src
+
+This adds some padding to the edges
+
+#+begin_src emacs-lisp
+(set-fringe-mode 10)
+#+end_src
+
+** Theme
+
+#+begin_src emacs-lisp
+(use-package doom-themes
+  :config
+  ;; Global settings (defaults)
+  (setq doom-themes-enable-bold t    ; if nil, bold is universally disabled
+        doom-themes-enable-italic t) ; if nil, italics is universally disabled
+  (load-theme 'doom-nord t)
+
+  ;; Enable flashing mode-line on errors
+  (doom-themes-visual-bell-config)
+  ;; or for treemacs users
+  (setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
+  (doom-themes-treemacs-config)
+
+  ;; Corrects (and improves) org-mode's native fontification.
+  (doom-themes-org-config))
+#+end_src
+
+** Font
+
+This sets the font to Source Code Pro
+
+#+begin_src emacs-lisp
+(set-face-attribute 'default nil :font "Source Code Pro" :height 120)
+(set-face-attribute 'variable-pitch nil :family "Source Sans 3" :height 180)
+#+end_src
+
+** Modeline
+
+#+begin_src emacs-lisp
+(use-package doom-modeline
+  :ensure t
+  :init (doom-modeline-mode 1))
+#+end_src
+
+** Line and column numbering
+
+Turn it on globally. We'll turn it off for certain modes under their respective sections.
+
+#+begin_src emacs-lisp
+(column-number-mode)
+(global-display-line-numbers-mode t)
+#+end_src
+
+
+** Line Width
+
+#+begin_src emacs-lisp
+(setq-default fill-column 80)
+#+end_src
+
+* User Experience
+
+This section is mostly about minimizing annoyances.
+
+** Startup
+
+This stops the welcome screen from showing up.
+
+#+begin_src emacs-lisp
+(setq inhibit-startup-screen t)
+#+end_src
+
+This kills the echo message on startup
+
+#+begin_src emacs-lisp
+(setq inhibit-startup-echo-area-message t)
+#+end_src
+
+** Cursors
+
+I don't enjoy the blinking cursor
+#+begin_src emacs-lisp
+(blink-cursor-mode -1)
+#+end_src
+
+And I don't need it to show me matching parens
+#+begin_src emacs-lisp
+(setq blink-matching-paren nil)
+#+end_src
+
+I'd also like to keep it to a single character
+#+begin_src emacs-lisp
+(setq x-stretch-cursor nil)
+#+end_src
+
+* Key Bindings
+** Escape
+
+Use escape to quit all prompts
+
+#+begin_src emacs-lisp
+(global-set-key (kbd "<escape>") 'keyboard-escape-quit)
+#+end_src
+
+** Evil
+
+Evil is a Vi compatibility layer for Emacs.
+
+#+begin_src emacs-lisp
+(use-package evil
+  :custom
+  ((evil-want-integration t) ;; This is optional since it's already set to t by default.
+   (evil-want-keybinding nil))
+  :config
+  (evil-mode 1))
+#+end_src
+
+** Dvorak Remapping
+
+I use the dvorak keyboard layout and I still want the motion keys to be on the home row.
+
+#+begin_src emacs-lisp
+(defun swap-tns (modes keymaps)
+  (evil-collection-swap-key modes keymaps
+    "t" "j"
+    "n" "k"
+    "s" "l"))
+
+(defun swap-tns-control (modes keymaps)
+  (evil-collection-swap-key modes keymaps
+    (kbd "C-t") (kbd "C-j")
+    (kbd "C-n") (kbd "C-k")
+    (kbd "C-s") (kbd "C-l")))
+
+(defun dvorak-translation (_mode mode-keymaps &rest _rest)
+  (swap-tns '(normal motion emacs) mode-keymaps))
+#+end_src
+
+** Evil Collection
+
+Evil collection is like a boil the ocean approach to evil mode for all other modes.
+
+#+begin_src emacs-lisp
+(use-package evil-collection
+  :after evil
+  :hook (evil-collection-setup-hook . dvorak-translations)
+  :init (evil-collection-init)
+  :config
+    (swap-tns nil '(evil-normal-state-map evil-motion-state-map))
+    (swap-tns-control nil '(evil-normal-insert-map)))
+#+end_src
+
+** General
+
+I use general to bind keys to commands.
+
+#+begin_src emacs-lisp
+(use-package general
+ :config 
+ :init
+ (general-override-mode)
+  (general-create-definer define-keys
+    :keymaps '(normal insert visual emacs)
+    :prefix "SPC"
+    :global-prefix "C-SPC"))
+    
+#+end_src
+
+* Completion and Narrowing
+** Which-key
+
+Which key helps with discovery. When there's a delay in a key command, it pops up with completions.
+
+#+begin_src emacs-lisp
+(use-package which-key
+  :diminish
+  :init (which-key-mode)
+  :custom ((which-key-idle-delay 1)))
+#+end_src
+
+** Ivy
+    
+Ivy is a completion framework
+
+#+begin_src emacs-lisp
+(use-package ivy
+  :diminish
+  :init (ivy-mode)
+  :bind (:map ivy-minibuffer-map
+         ("TAB" . ivy-alt-done)
+         ("C-s" . ivy-alt-done)
+         ("C-t" . ivy-next-line)
+         ("C-n" . ivy-previous-line)
+         :map ivy-switch-buffer-map
+         ("C-n" . ivy-previous-line)
+         ("C-s" . ivy-done)
+         ("C-d" . ivy-switch-buffer-kill)
+         :map ivy-reverse-i-search-map
+         ("C-n" . ivy-previous-line)
+         ("C-d" . ivy-reverse-i-search-kill)))
+#+end_src
+
+** Counsel
+    
+Counsel integrates files and buffers using ivy
+
+#+begin_src emacs-lisp
+(use-package counsel)
+(define-keys
+    "f" '(:ignore t :which-key "files")
+    "ff" '(counsel-find-file :which-key "find file")
+    ":" '(counsel-M-x :which-key "execute")
+    "b" '(:ignore t :which-key "buffers")
+    "bb" '(projectile-switch-to-buffer :which-key "switch buffer")
+    "bB" '(counsel-ibuffer :which-key "switch buffer (all)")
+    "bd" '(kill-current-buffer :which-key "kill current buffer"))
+#+end_src
+
+** Company
+
+Company does in buffer completion (ala tab complete).
+
+#+begin_src emacs-lisp :tangle no
+(use-package company-mode
+  :init (global-company-mode))
+#+end_src
+
+* Org Mode
+
+I use org for a bunch of different things.
+   
+#+begin_src emacs-lisp
+(defun org-mode-setup ()
+  (org-indent-mode)
+  (variable-pitch-mode 1)
+  (auto-fill-mode 0)
+  (visual-line-mode 1)
+  (display-line-numbers-mode -1)
+  (setq evil-auto-indent nil))
+
+(use-package org
+  :hook (org-mode . org-mode-setup)
+  :config
+    (setq org-hide-emphasis-markers t
+	org-src-fontify-natively t
+	org-src-tab-acts-natively t
+	org-edit-src-content-indentation 0
+	org-hide-block-startup nil
+	org-src-preserve-indentation nil
+	org-startup-folded 'content
+	org-cycle-separator-lines 2)
+
+    (dolist (face '((org-level-1 . 1.2)
+                    (org-level-2 . 1.1)
+                    (org-level-3 . 1.05)
+                    (org-level-4 . 1.0)
+                    (org-level-5 . 1.1)
+                    (org-level-6 . 1.1)
+                    (org-level-7 . 1.1)
+                    (org-level-8 . 1.1)))
+        (set-face-attribute (car face) nil :height (cdr face)))
+
+    ;; Make sure org-indent face is available
+    (require 'org-indent)
+
+    ;; Ensure that anything that should be fixed-pitch in Org files appears that way
+    (set-face-attribute 'org-block nil :foreground nil :inherit 'fixed-pitch)
+    (set-face-attribute 'org-code nil   :inherit '(shadow fixed-pitch))
+    (set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
+    (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
+    (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
+    (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
+    (set-face-attribute 'org-checkbox nil :inherit 'fixed-pitch))
+#+end_src
+
+** Org Capture
+
+org-capture allows us to capture stuff quickly. I'm using it to keep a todo list GTD style[fn:2] .
+
+#+begin_src emacs-lisp
+(use-package org-capture
+  :config 
+    (setq org-capture-templates '(
+       ("t" "Todo" entry (file+headline "~/org/inbox.org" "Tasks") "* TODO %i%?")
+       ("r" "Reference" entry (file+headline "~/org/reference.org" "References") "* %i%? \n %U"))))
+
+(define-keys
+    "o" '(:ignore t :which-key "org mode")
+    "oa" '(org-agenda :which-key "org agenda")
+    "oc" '(org-capture :which-key "capture")
+    "oi" '(:ignore t :which-key "insert")
+    "oil" '(org-agenda :which-key "link")
+    "ob" '(:ignore t :which-key "babel")
+    "obt" '(org-babel-tangle :which-key "tangle"))
+#+end_src
+
+This sets up the places where we want to refile our tasks to.
+#+begin_src emacs-lisp
+(setq org-refile-targets '(("~/org/gtd.org" :maxlevel . 3)
+                           ("~/org/someday.org" :level . 1)
+                           ("~/org/reference.org" :maxlevel . 2)))
+#+end_src
+
+Set our project driven files to get picked up by org-agenda.
+#+begin_src emacs-lisp
+(setq org-agenda-files '(
+  "~/org/inbox.org"
+  "~/org/gtd.org"
+  "~/org/reference.org"))
+#+end_src
+
+This sets the available states for org todos.
+
+#+begin_src emacs-lisp
+(setq org-todo-keywords
+      '((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d)")
+        (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELLED(c@/!)")))
+#+end_src
+
+* Snippets
+
+#+begin_src emacs-lisp
+(use-package yasnippet
+  :config 
+    (yas-global-mode 1)
+    (setq yas-snippet-dirs '("./snippets")))
+#+end_src
+
+** Sources
+
+[[https://github.com/joaotavora/yasnippet#installation][Yasnippet Installation Readme]]
+
+* Window Management
+
+Emacs windows are really useful, especially when [[https://www.emacswiki.org/emacs/WinnerMode][winner mode]] is enabled.
+   
+#+begin_src emacs-lisp
+(winner-mode t)
+#+end_src
+
+** Key bindings
+
+I'm using the mnemonic "SPC w" for window. From there I've got commands for moving "m" (which is probably better termed _focus_) and then the "htns" keys.
+
+#+begin_src emacs-lisp
+(define-keys 
+  "w" '(:ignore t :which-key "windows")
+  "ww" '(other-window :which-key "other window")
+  "wm" '(:ignore t :which-key "move")
+  "wmm" '(maximize-window :which-key "maximize current window")
+  "wmn" '(windmove-up :which-key "move window focus up") 
+  "wmt" '(windmove-down :which-key "move window focus down") 
+  "wmh" '(windmove-left :which-key "move window focus left") 
+  "wms" '(windmove-right :which-key "move window focus right") 
+  "ws" '(:ignore t :which-key "split")
+  "wsv" '(evil-window-vsplit :which-key "split vertically")
+  "wsh" '(evil-window-split :which-key "split horizontally")
+  "wd" '(:ignore t :which-key "delete")
+  "wdo" '(evil-window-delete :which-key "delete other windows")
+  "wdd" '(evil-window-delete :which-key "delete current window"))
+#+end_src
+
+* Projects
+
+I use projectile to manage projects. I keep all my projects in ~~/Code~ and allow projectile to find them that way. The one exception is my org mode notes which I keep in a separate directory.
+
+#+begin_src emacs-lisp
+(use-package projectile
+  :custom 
+  ((projectile-completion-system 'ivy)
+   (projectile-project-search-path '("~/Code")))
+  :init (projectile-mode))
+#+end_src
+
+All my projectile commands fall under ~SPC p~.
+
+#+begin_src emacs-lisp
+(define-keys
+    "p" 'projectile-command-map
+    "pa" 'projectile-add-known-project)
+#+end_src
+
+Counsel projectile adds on some nice things around completion within projects. 
+#+begin_src emacs-lisp
+(use-package counsel-projectile
+  :init (counsel-projectile-mode))
+#+end_src
+
+
+I'm overriding some of the default projectile commands here. The outlier is ~SPC SPC~ to find a project file, which is just too convenient.
+
+#+begin_src emacs-lisp
+(define-keys
+  "ps" '(counsel-projectile-rg :which-key "search project")
+  "SPC" '(counsel-projectile-find-file-dwim :which-key "find project file"))
+#+end_src
+
+* Source Control
+
+** Magit
+
+Magit is an awesome tool for using git from Emacs.
+
+#+begin_src emacs-lisp
+(use-package magit)
+#+end_src
+
+*** Key bindings
+
+#+begin_src emacs-lisp
+(define-keys
+    "gg" 'magit-status
+    "gc" 'magit-clone)
+#+end_src
+
+*** More Evil
+
+I use evil magit on top. To add some niceties. I'm also remapping a bunch of motion commands to get a more normal Dvorak experience.
+#+begin_src emacs-lisp
+(use-package evil-magit
+  :after evil magit
+  :config
+  (evil-define-key evil-magit-state magit-mode-map "t" 'evil-next-visual-line)
+  (evil-define-key evil-magit-state magit-mode-map "n" 'evil-previous-visual-line))
+#+end_src
+
+* Dired
+
+Dired sorta sucks by default. These add a bunch of stuff to make dired better.
+
+#+begin_src emacs-lisp
+(evil-define-key '(normal visual motion) dired-mode-map "t" 'dired-next-line)
+#+end_src
+
+* Project Tree
+
+** Treemacs
+I'm using ~treemacs~ to add keep track of my project directories. The following add-ons help with the integration with the other packages I use.
+
+#+begin_src emacs-lisp
+(use-package treemacs)
+
+(use-package treemacs-projectile
+  :after treemacs projectile)
+
+(use-package treemacs-magit
+  :after treemacs magit)
+
+(use-package treemacs-evil
+  :after treemacs evil)
+#+end_src
+
+*** Key Bindings
+
+The of treemacs is under "t" for toggle.
+
+#+begin_src emacs-lisp
+(define-keys 
+    "tt" 'treemacs)
+#+end_src
+
+* Code
+
+This package helps differentiate nested delimiters.
+
+#+begin_src emacs-lisp
+(use-package rainbow-delimiters
+  :hook (prog-mode . rainbow-delimiters-mode))
+#+end_src
+
+* Syntax
+
+#+begin_src emacs-lisp
+(use-package flycheck
+  :init (global-flycheck-mode))
+#+end_src
+
+* Language Server Protocol
+
+The core of it is [[https://emacs-lsp.github.io/lsp-mode/][LSP mode]].
+
+#+begin_src emacs-lisp
+(use-package lsp-mode
+  :commands lsp
+  :hook ((lsp-mode . lsp-enable-which-key-integration)
+         (lsp-mode . lsp-lens-mode)))
+#+end_src
+
+LSP UI enables flycheck support and peeking.
+
+#+begin_src emacs-lisp
+(use-package lsp-ui
+   :hook (lsp-mode . lsp-ui-mode))
+#+end_src
+
+This also enables a few extra bits to integrate better into ivy and treemacs.
+
+#+begin_src emacs-lisp
+(use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
+(use-package lsp-treemacs :commands lsp-treemacs-errors-list)
+#+end_src
+
+* Debugging
+
+DAP mode is useful for setting breakpoints and other debugging functions.
+
+#+begin_src emacs-lisp
+(use-package dap-mode
+  :hook ((lsp-mode . dap-mode)
+         (lsp-mode . dap-ui-mode)))
+#+end_src
+
+* Scala
+
+
+#+begin_src emacs-lisp
+(use-package scala-mode)
+#+end_src
+
+#+begin_src emacs-lisp
+(use-package sbt-mode)
+#+end_src
+
+#+begin_src emacs-lisp
+(use-package lsp-metals
+  :hook (scala-mode . lsp))
+#+end_src
+
+** TODO file extensions?
+
+* Terminal
+** vterm
+I'm using vterm[fn:1] to manage shells in emacs. It seems like it's the best out of all of the alternatives (eshell, term, etc).
+
+#+begin_src emacs-lisp
+(use-package vterm
+  :config 
+    (display-line-numbers-mode -1))
+#+end_src
+
+
+* Sources
+
+** [[https://matthewbauer.us/blog/nix-and-org.html][Nix and Org by Matthew Bauer]]
+
+This was super helpful for figuring out the literate programming stuff via
+org-babel.
+
+**
+
+* Footnotes
+[fn:1] [[https://github.com/akermu/emacs-libvterm][emacs-libvterm]] 
+[fn:2] https://emacs.cafe/emacs/orgmode/gtd/2017/06/30/orgmode-gtd.html 
+ 

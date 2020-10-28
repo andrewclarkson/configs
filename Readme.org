@@ -1,0 +1,137 @@
+* Configs
+
+This repo contains the nix based system configurations used across my different devices.
+
+** Installation
+
+This installation follows along with the [[https://nixos.org/nix/manual/#chap-installation][nix manual installation chapter]] until we get to the "Cloning the configs" step. I've kept the full steps here as a reminder to myself of exactly how I set things up in case I need to debug issues.
+
+I do use some shell variables throughout the different snippets. Here's a starter that will make copy and paste easier:
+
+#+BEGIN_SRC sh
+export EDITOR=nano
+export HOSTNAME=fixme
+export PATH_TO_CONFIGS=$HOME/Code/configs
+#+END_SRC
+
+The installation steps are pretty different between NixOS and MacOSX so I've kept them totally separate here.
+
+*** MacOSX
+
+OSX configuration is a special kind of hell. This setup uses the wonderful [[https://github.com/LnL7/nix-darwin][nix-darwin]] for a NixOS like
+system configuration.
+
+**** Installing ~nix~
+
+Nix _needs_ to use ~/nix~ as the directory for it's store. OSX post [[https://www.apple.com/macos/catalina/][Catalina]] has a read-only system volume. [[https://github.com/NixOS/nix/issues/2925][See this nix github issue for more details]].
+
+The point is we need to create a synthetic volume for ~/nix~ that looks like a system directory but is writable. This can be accomplished via the installer.
+
+#+BEGIN_SRC sh
+sh <(curl -L https://nixos.org/nix/install) --darwin-use-unencrypted-nix-store-volume
+#+END_SRC
+
+#+RESULTS:
+
+*Security Note*: This assumes that you're [[using FileVault to encrypt the disk.][using FileVault to encrypt the whole disk at rest]]
+
+**** Installing ~nix-darwin~
+
+#+BEGIN_SRC sh
+nix-build https://github.com/LnL7/nix-darwin/archive/master.tar.gz -A installer
+./result/bin/darwin-installer
+#+END_SRC
+
+**** Installing ~home-manager~
+
+I use home-manager for a lot of the dirty work of changing dotfiles.
+
+The install process for this is dead simple, just add the channel.
+
+#+BEGIN_SRC sh
+nix-channel --add https://github.com/rycee/home-manager/archive/master.tar.gz home-manager
+nix-channel --update
+#+END_SRC
+
+**** Cloning the Configs
+
+You'll want to git clone this repo somewhere.
+
+#+BEGIN_SRC sh
+git clone https://github.com/a4wc6n/configs.git $PATH_TO_CONFIGS
+#+END_SRC
+
+**** Telling Secrets
+
+There are a fair number of things that I don't want out in public, passwords, private keys, etc.
+
+For this I use git-crypt
+
+
+**** Creating a New Host
+
+All you need to do to create a new host is copy the template to a host and fill it out.
+
+#+BEGIN_SRC sh
+mkdir $PATH_TO_CONFIGS/hosts/$HOSTNAME
+cp $PATH_TO_CONFIGS/templates/hosts/darwin/configuration.nix $PATH_TO_CONFIGS/hosts/$HOSTNAME
+$EDITOR $PATH_TO_CONFIGS/hosts/$HOSTNAME
+#+END_SRC
+
+**** Installing the Configs
+
+By default ~darwin-rebuild~ will look in ~\~/.nixpkgs/darwin-configuration.nix~. In order to get it to look in the right place we'll need to run like:
+
+#+BEGIN_SRC sh
+darwin-rebuild switch -I darwin-config=$PATH_TO_CONFIGS/hosts/$HOSTNAME/configuration.nix
+#+END_SRC
+
+After the first time you should be able to run it without the ~-I~ argument as long as you don't move the configs directory.
+
+**** Extra Steps
+
+***** TODO are there other steps I'm missing?
+
+*** NixOS
+
+You'll need some secrets that shouldn't be published on the internet. First create `/etc/nixos/secrets.nix`. You can start with copying the template `./nix/secrets.template.nix`
+
+```sh
+cp ./nix/secrets.template.nix /etc/nixos/secrets.nix
+chown root:root /etc/nixos/secrets.nix
+sudo $EDITOR /etc/nixos/secrets.nix
+```
+
+Actually, I'm now doing it via symlinks.
+
+```sh
+ln -s $CONFIG_REPO_PATH/nix/devices/$DEVICE/configuration.nix /mnt/etc/nixos/configuration.nix
+```
+
+** Organization & Structure
+
+The repo is broken out into the following directories:
+
+*** hosts
+
+The ~hosts~ directory contains the entry point for the configuration of different hosts based on their host name.
+
+*** profiles
+
+The ~profiles~ directory contains groups of configuration and packages based on the different roles that a machine might play. For example, my development machines should include emacs, web servers shouldn't.
+
+*** config
+
+The ~config~ directory contains isolated configuration for packages and services.
+
+*** TODO: more?
+
+- modules
+- secrets
+
+** Acknowledgements
+
+- nix-darwin
+- nixos
+- home-manager
+-

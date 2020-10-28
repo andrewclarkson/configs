@@ -1,0 +1,5 @@
+(setq  
+  magit-git-executable "@git@/bin/git"
+  projectile-generic-command "@fd@/bin/fd . -0 --type f --color=never"
+  projectile-git-command "@git@/bin/git ls-files -zco --exclude-standard"
+  gnuplot-program "@gnuplot@/bin/gnuplot")
