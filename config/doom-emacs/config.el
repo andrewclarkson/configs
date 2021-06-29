@@ -98,6 +98,8 @@
       :m "t" 'org-agenda-next-line
       :m "n" 'org-agenda-previous-line)
 
+(add-to-list 'auto-mode-alist '("\\.sld\\'" . scheme-mode))
+
 
 (setq lsp-rust-server 'rust-analyzer)
 

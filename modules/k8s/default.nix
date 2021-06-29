@@ -2,6 +2,9 @@
 
 {
   home.packages = with pkgs; [
-    python
+    kubernetes
+    kubernetes-helm
+    kind
+    kubectl
   ];
 }

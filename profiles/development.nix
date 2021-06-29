@@ -15,5 +15,7 @@
     ../modules/python
     ../modules/tmux
     ../modules/scala
+    ../modules/direnv
+    ../modules/k8s
   ];
 }

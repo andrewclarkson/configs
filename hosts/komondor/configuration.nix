@@ -21,11 +21,6 @@
       ../../profiles/common.nix
       ../../profiles/development.nix
     ];
-    nixpkgs.overlays = [
-      (import (builtins.fetchTarball {
-        url = https://github.com/nix-community/emacs-overlay/archive/master.tar.gz;
-      }))
-    ];
 
     programs.home-manager.enable = true;
   };
@@ -45,7 +40,6 @@
     pathsToLink = "/Applications";
   });
 
-  
   # Use a custom configuration.nix location.
   # $ darwin-rebuild switch -I darwin-config=$HOME/.config/nixpkgs/darwin/configuration.nix
   environment.darwinConfig = "$HOME/Code/configs/hosts/komondor/configuration.nix";
@@ -53,15 +47,17 @@
   # Auto upgrade nix package and the daemon service.
   services.nix-daemon.enable = true;
 
-  nix = {
-    package = pkgs.nixFlakes;
-    extraOptions = ''
-      experimental-features = nix-command flakes
-    '';
-  };
+  # nix = {
+  #   package = pkgs.nixFlakes;
+  #   extraOptions = ''
+  #     experimental-features = nix-command flakes
+  #   '';
+  # };
 
   # Create /etc/bashrc that loads the nix-darwin environment.
+  environment.shells = [pkgs.fish];
   programs.fish.enable = true;
+
   
   # Used for backwards compatibility, please read the changelog before changing.
   # $ darwin-rebuild changelog
